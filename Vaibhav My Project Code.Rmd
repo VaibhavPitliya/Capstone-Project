@@ -1,0 +1,439 @@
+---
+Author: Vaibhav Pitliya
+College: Veermata Jijabai Technological Institute
+Email: vaibhavpitliya28@gmail.com
+Title: Analyzing factors causing delay and cancellation
+output:
+  html_document:
+    df_print: paged
+---
+##1.Loading Library
+```{r comment = NA, message = FALSE, warning = FALSE}
+library(psych)
+library(lattice)
+library(corrplot)
+library(corrgram)
+library(car)
+library(arm)
+```
+##2.Reading Data 
+```{r comment = NA, message = FALSE, warning = FALSE}
+setwd("C:/Users/vaibhav/Desktop/DataSets")
+flights.df<-read.csv("flights.csv")
+```
+```{r comment = NA}
+setwd("C:/Users/vaibhav/Desktop/DataSets")
+airlines.df<-read.csv("airlines.csv")
+airport.df<-read.csv("airports.csv")
+```
+
+##3.Cleaning Data
+###Removing unwanted Coloumns
+```{r comment = NA, message = FALSE, warning = FALSE}
+flights_new.df<-cbind.data.frame(flights.df$YEAR,flights.df$MONTH,flights.df$DAY,flights.df$DAY_OF_WEEK,flights.df$AIRLINE,flights.df$FLIGHT_NUMBER,flights.df$ORIGIN_AIRPORT,flights.df$DESTINATION_AIRPORT,flights.df$DEPARTURE_DELAY,flights.df$AIR_TIME,flights.df$DISTANCE,flights.df$ARRIVAL_DELAY,flights.df$DIVERTED,flights.df$CANCELLED,flights.df$CANCELLATION_REASON)
+flights_new.df$`flights.df$CANCELLATION_REASON`=factor(flights_new.df$`flights.df$CANCELLATION_REASON`,levels=c('A','B','C','D'),labels=c(1,2,3,4))
+
+```
+
+
+##4Finding Reasons for Cancellation
+
+###Finding % of cancelled flights
+```{r  comment = NA, message = FALSE, warning = FALSE}
+cancelled_flights.df<-subset(flights_new.df,flights_new.df$`flights.df$CANCELLED`==1)
+nrow(cancelled_flights.df)/nrow(flights_new.df)*100
+```
+Percentage of Flights Cancelled:1.57
+###Finding which reasons lead to maximum cancellations
+```{r comment = NA, message = FALSE, warning = FALSE}
+mytable1<-with(cancelled_flights.df,table(cancelled_flights.df$`flights.df$CANCELLATION_REASON`))
+prop.table(mytable1)*100
+barchart(cancelled_flights.df$`flights.df$CANCELLATION_REASON`,data=cancelled_flights.df,col="black")
+```
+
+
+
+
+
+
+
+
+
+
+28% of cancellations were due to Airline or carrier reasons
+54% of cancellations were due to Weather reasons
+17% of cancellations were due to National Air System reasons
+0.02% of cancellations were due to Security Reasons
+Hence maximum 54% of cancellations are due to weather reasons
+
+###Analyzing which month got maximum cancellations
+```{r comment = NA, message = FALSE, warning = FALSE}
+mytable2<-with(cancelled_flights.df,table(cancelled_flights.df$`flights.df$MONTH`))
+prop.table(mytable2)*100
+hist( cancelled_flights.df$`flights.df$MONTH`,
+        xlab="Count",
+        ylab="Month",
+        xlim=c(0,12),
+        main="Cancellations per month",
+        col=c("black")      
+        )
+
+```
+
+
+
+
+
+
+
+
+Top 5 Months with maximum cancellations are
+1)february
+2)January
+3)March
+4)June
+5)December
+It can be clearly seen maximum Cancellations are in the season of winter due to heavy snowfall
+This can be seen as shown by the following table:
+```{r comment = NA, message = FALSE, warning = FALSE}
+mytable3<-table(cancelled_flights.df$`flights.df$CANCELLATION_REASON`,cancelled_flights.df$`flights.df$MONTH`)
+prop.table(mytable3,2)*100
+plot(cancelled_flights.df$`flights.df$CANCELLATION_REASON`,cancelled_flights.df$`flights.df$MONTH`)
+
+
+```
+
+###Analyzing Which Airlines got maximum cancellations
+```{r message = FALSE, warning = FALSE}
+mytable4<-with(cancelled_flights.df,table(cancelled_flights.df$`flights.df$AIRLINE`))
+prop.table(mytable4)*100
+plot(cancelled_flights.df$`flights.df$AIRLINE`,
+     main="Maximum cancellations by which airlines",
+     col="black")
+```
+Top 5 Airlines with maximum cancellations are
+1)WN :Southwest Airlines Co.
+2)EV :Atlantic Southeast Airlines
+3)MQ :American Eagle Airlines Inc.
+4)AA :American Airlines Inc.
+5)OO : Skywest Airlines Inc.
+
+###Analyzing  on which day flights got maximum cancellations
+```{r comment = NA, message = FALSE, warning = FALSE}
+mytable5<-with(cancelled_flights.df,table(cancelled_flights.df$`flights.df$DAY_OF_WEEK`))
+prop.table(mytable5)*100
+hist(cancelled_flights.df$`flights.df$DAY_OF_WEEK`,
+     main="Cancellation of flights based on which day of week",
+     col=c("black"))
+```
+
+
+
+
+
+
+
+In decreasing order of cancellations
+1)Monday
+2)Tuesday
+3)Sunday
+4)Thursday
+5)Wednesday
+6)Friday
+7)Saturday
+
+
+###Correlation between independent variables
+```{r comments=NA, message = FALSE, warning = FALSE}
+corr.test(cancelled_flights.df[,c(2,3,4,6,11,14)])
+corrplot.mixed(cor(cancelled_flights.df[,c(2,3,4,6,11,14)],use="complete.obs"),upper="circle",tl.pos = "lt")
+```
+
+##5 DELAY RATIOS
+
+###Distributing data in terms of few factors
+Creating a new coloumn which states the factors about delays and cancellation
+```{r message = FALSE, warning = FALSE}
+flights_new.df$status<-'ON TIME'
+flights_new.df$status[flights_new.df$`flights.df$DEPARTURE_DELAY`>0] <-'DEPARTURE DELAY'
+flights_new.df$status[flights_new.df$`flights.df$CANCELLED`==1] <-'CANCELLED FLIGHTS'
+flights_new.df$status[flights_new.df$`flights.df$ARRIVAL_DELAY`>0 & (flights_new.df$`flights.df$ARRIVAL_DELAY`-flights_new.df$`flights.df$DEPARTURE_DELAY`)>0 & flights_new.df$`flights.df$DEPARTURE_DELAY`>0] <-'DEPR & ARVL_DELAY'
+flights_new.df$status[flights_new.df$`flights.df$ARRIVAL_DELAY`>0 & flights_new.df$`flights.df$DEPARTURE_DELAY`<=0] <-'ARRIVAL_DELAY'
+flights_new.df$status<-factor(flights_new.df$status)
+```
+###Seeing which delays occured the most
+```{r, message = FALSE, warning = FALSE}
+mytable4<-table(flights_new.df$status)
+prop.table(mytable4)*100
+plot(flights_new.df$status)
+```
+
+
+
+
+
+
+52% flights were on time
+26% flights had departure delays
+9% flights had arrival delays
+9% flights had arrival and departure delay
+1.54% flights were cancelled
+
+
+##6 DEPARTURE DELAY ANALYSIS
+###Summarizing departure delay
+```{r message = FALSE, warning = FALSE}
+summary(flights_new.df$`flights.df$DEPARTURE_DELAY`)
+```
+###Breaking departure delay as per the time
+```{r message = FALSE, warning = FALSE}
+flightsDepDelay<-subset(flights_new.df,flights_new.df$`flights.df$DEPARTURE_DELAY`>0)
+flightsDepDelay$DelayTimeInterval<-cut(flightsDepDelay$`flights.df$DEPARTURE_DELAY`,
+                                        breaks= c(0,10,30,60,90,120,180,1988),
+                                        labels=c("(0-10]","(10-30]","(30-60]","(60-90]","(90-120]","(120-180]","(180-1988]"))
+```
+
+
+###Tabluating departure delays
+```{r message = FALSE, warning = FALSE}
+mytable5<-with(flights_new.df,table(flightsDepDelay$DelayTimeInterval))
+prop.table(mytable5)*100
+plot(flightsDepDelay$DelayTimeInterval,col="Black")
+```
+
+
+
+
+
+Hence
+Of all the Departure delays
+41% flights were delayed by less tha 10 mins
+28% flights were delayed by 10 to 30 mins
+14% flights were delayed by 30 to 60 mins
+6% flights were delayed by 60 to 90  mins
+3% flights were delayed by 90 to 120 mins
+3% flights were delayed by 120 to 180 mins
+2% flights were delayed by 180+ mins
+
+
+```{r}
+mytable6<-table(flightsDepDelay$DelayTimeInterval,flightsDepDelay$`flights.df$MONTH`)
+prop.table(mytable6,1)*100
+```
+### Running Correlation tests
+```{r}
+corrplot.mixed(cor(flightsDepDelay[,c(2,3,4,6,9,11,13)]),upper="ellipse",tl.pos="lt")
+```
+ 
+
+
+### Distributing data in terms of 3 factors for easier evaluation
+```{r}
+flightsDepDelay$Latency[flightsDepDelay$`flights.df$DEPARTURE_DELAY`>0 & flightsDepDelay$`flights.df$DEPARTURE_DELAY`<5]<-'On time'
+flightsDepDelay$Latency[flightsDepDelay$`flights.df$DEPARTURE_DELAY`>=5 & flightsDepDelay$`flights.df$DEPARTURE_DELAY`<15]<-'Small Delay'
+flightsDepDelay$Latency[flightsDepDelay$`flights.df$DEPARTURE_DELAY`>=15]<-"Long Delay"
+flightsDepDelay$Latency<-factor(flightsDepDelay$Latency)
+
+```
+
+```{r}
+mytable7<-with(flightsDepDelay,table(flightsDepDelay$Latency))
+prop.table(mytable7)*100
+```
+###Seeing these 3 factors with respect to month
+```{r}
+mytable8<-table(flightsDepDelay$`flights.df$MONTH`,flightsDepDelay$Latency)
+prop.table(mytable8,2)*100
+```
+
+
+
+
+
+Of all the long delays 
+Maximum were in the month of:
+1)June
+2)July
+3)March,August,December
+
+
+###Seeing these 3 factors with respect to day of week
+```{r}
+mytable9<-table(flightsDepDelay$`flights.df$DAY_OF_WEEK`,flightsDepDelay$Latency)
+prop.table(mytable9,2)*100
+```
+
+
+
+All percentages are almost same so no evident conclusion can be drawn
+
+
+###Seeing these 3 factors with respect to Airlines
+```{r}
+mytable10<-table(flightsDepDelay$`flights.df$AIRLINE`,flightsDepDelay$Latency)
+prop.table(mytable10,2)*100
+```
+
+-Maximum Long delays are seen in Southwest Airlines Co.(25%) folowed by American Airlines Inc.,Delta Air Lines Inc.,United Air Lines Inc.
+-Similar trend is seen in small delays and on time flights too.
+
+
+###Some insights(Comparing average delay time of each Airline)
+```{r}
+var1<-aggregate(flightsDepDelay$`flights.df$DEPARTURE_DELAY`,list(flightsDepDelay$`flights.df$AIRLINE`),mean)
+var1
+plot(x=var1$Group.1,y=jitter(var1$x))
+```
+
+
+
+
+This shows that when taking into account no. of flights along with delay time maximum or the airlines with highest delay is F9 folowed by NK and EV
+
+Hence Ailines affecting it changes drastically after considering number of flights
+
+##7 ARRIVAL DELAYS
+###Summarizing arrival delay
+```{r}
+summary(flights_new.df$`flights.df$ARRIVAL_DELAY`)
+```
+###Breaking arrival delay as per the time
+```{r}
+flightsArrDelay<-subset(flights_new.df,!is.na(flights_new.df$`flights.df$ARRIVAL_DELAY`))
+flights_ArrDelay<-subset(flightsArrDelay,flightsArrDelay$`flights.df$ARRIVAL_DELAY`>0)
+flights_ArrDelay$DelayTimeInterval<-cut(flights_ArrDelay$`flights.df$ARRIVAL_DELAY`,
+                                        breaks= c(0,10,30,60,90,120,180,1988),
+                                        labels=c("(0-10]","(10-30]","(30-60]","(60-90]","(90-120]","(120-180]","(180-1988]"))
+```
+
+###Tabulating Arrival Delay
+```{r}
+mytable11<-with(flights_new.df,table(flights_ArrDelay$DelayTimeInterval))
+prop.table(mytable11)*100
+plot(flights_ArrDelay$DelayTimeInterval,col="Black")
+```
+
+
+Hence
+Of all the Arrival delays
+39% flights were delayed by less tha 10 mins
+29% flights were delayed by 10 to 30 mins
+15% flights were delayed by 30 to 60 mins
+6% flights were delayed by 60 to 90  mins
+3% flights were delayed by 90 to 120 mins
+3% flights were delayed by 120 to 180 mins
+2% flights were delayed by 180+ mins
+
+This is very similar to Departure delays distribution
+
+### Running Correlation tests
+```{r}
+corrplot.mixed(cor(flights_ArrDelay[,c(2,3,4,6,9,12,13)]),upper="ellipse",tl.pos="lt")
+```
+ 
+
+
+
+
+
+
+
+### Distributing data in terms of 3 factors for easier evaluation
+```{r}
+flights_ArrDelay$Latency[flights_ArrDelay$`flights.df$ARRIVAL_DELAY`>0 & flights_ArrDelay$`flights.df$ARRIVAL_DELAY`<5]<-'On time'
+flights_ArrDelay$Latency[flights_ArrDelay$`flights.df$ARRIVAL_DELAY`>=5 & flights_ArrDelay$`flights.df$ARRIVAL_DELAY`<15]<-'Small Delay'
+flights_ArrDelay$Latency[flights_ArrDelay$`flights.df$ARRIVAL_DELAY`>=15]<-"Long Delay"
+flights_ArrDelay$Latency<-factor(flights_ArrDelay$Latency)
+
+```
+
+```{r}
+mytable12<-with(flights_ArrDelay,table(flights_ArrDelay$Latency))
+prop.table(mytable12)*100
+```
+
+
+
+50% Flights have long delay
+30% Flights have small delay
+
+###Seeing these 3 factors with respect to month
+```{r}
+mytable13<-table(flights_ArrDelay$`flights.df$MONTH`,flights_ArrDelay$Latency)
+prop.table(mytable13,2)*100
+```
+
+
+
+
+
+Of all the long delays 
+Maximum were in the month of:
+1)June
+2)July
+3)Jan,December
+
+
+###Seeing these 3 factors with respect to day of week
+```{r}
+mytable14<-table(flights_ArrDelay$`flights.df$DAY_OF_WEEK`,flights_ArrDelay$Latency)
+prop.table(mytable14,2)*100
+```
+
+
+
+All percentages are almost same so no evident conclusion can be drawn
+
+
+###Seeing these 3 factors with respect to Airlines
+```{r}
+mytable15<-table(flights_ArrDelay$`flights.df$AIRLINE`,flights_ArrDelay$Latency)
+prop.table(mytable15,2)*100
+```
+
+-Maximum Long delays are seen in Southwest Airlines Co.(25%) folowed by American Airlines Inc.,Delta Air Lines Inc.,United Air Lines Inc.
+-Similar trend is seen in small delays and on time flights too.
+
+
+###Some insights(Comparing average delay time of each Airline)
+```{r}
+var3<-aggregate(flights_ArrDelay$`flights.df$ARRIVAL_DELAY`,list(flights_ArrDelay$`flights.df$AIRLINE`),mean)
+var3
+plot(x=var3$Group.1,y=jitter(var3$x))
+```
+
+
+
+
+This shows that when taking into account no. of flights along with delay time maximum or the airlines with highest delay is F9 folowed by NK,UA and MQ
+
+## 8 REGRESSION MODELS
+###Running a correlation test
+```{r}
+cor.test(flights_new.df$`flights.df$ARRIVAL_DELAY`,flights_new.df$`flights.df$DEPARTURE_DELAY`)
+```
+
+
+###Predicting Departure delay based on various factors
+```{r}
+fit1<-lm(flights.df$DEPARTURE_DELAY~flights.df$AIR_SYSTEM_DELAY+flights.df$WEATHER_DELAY+flights.df$LATE_AIRCRAFT_DELAY+flights.df$AIRLINE_DELAY+flights.df$SECURITY_DELAY)
+summary(fit1)
+```
+
+Hence we can predict departure delay based on other delay
+This model is quite good at predicting delays as Adjusted R-squared is 0.9402
+
+###Predicting Arrival delay based on various factors
+```{r}
+fit2<-lm(flights.df$ARRIVAL_DELAY~flights.df$AIR_SYSTEM_DELAY+flights.df$WEATHER_DELAY+flights.df$LATE_AIRCRAFT_DELAY+flights.df$AIRLINE_DELAY+flights.df$SECURITY_DELAY)
+summary(fit2)
+```
+
+###Predicting Arrival delay based on Departure delay
+```{r}
+fit<-lm(flights_new.df$`flights.df$ARRIVAL_DELAY`~flights_new.df$`flights.df$DEPARTURE_DELAY`)
+summary(fit)
+```
+Hence Arrival Delay can be predicted with Departure Delay as multiple R squared = 0.8924 
+
+

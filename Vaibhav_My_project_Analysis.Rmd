@@ -1,0 +1,8 @@
+---
+title: "Heritage Tourism at Niagara Falls"
+author: "Anonymous Student"
+output:
+  html_notebook: default
+  html_document: default
+  word_document: default
+---
